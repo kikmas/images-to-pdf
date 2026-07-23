@@ -28,7 +28,7 @@
     font-family: var(--sans);
     font-size: 14px;
   }
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;600&family=Kosugi+Maru&display=swap');
 
   .app {
     display: grid;
@@ -98,7 +98,7 @@
   .seg button:hover:not(.active) { background: #2b3036; color: var(--text); }
 
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  select, input[type="number"] {
+  select, input[type="number"], input[type="text"] {
     width: 100%;
     background: var(--panel-2);
     border: 1px solid var(--border);
@@ -456,6 +456,23 @@
       <button class="btn ghost" id="clearBtn">すべてクリア</button>
     </div>
 
+    <div class="divider"></div>
+
+    <div class="field-group">
+      <div class="field-label">出力設定</div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">ファイル名</div>
+      <input type="text" id="fileNameInput" value="combined" placeholder="combined">
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">画像品質（JPEG, %）</div>
+      <input type="number" id="qualityInput" min="1" max="100" value="90">
+      <div class="hint">100%はPNG相当（無劣化・容量大）。下げるほどファイルサイズが小さくなります。</div>
+    </div>
+
     <div class="stat-line"><span>画像枚数</span><b id="statImgCount">0</b></div>
     <div class="stat-line"><span>出力ページ数(予測)</span><b id="statPageCount">0</b></div>
 
@@ -500,6 +517,15 @@
     </div>
     <div class="modal-hint">画像をクリックしてテキストを追加。ドラッグで移動、ダブルクリックで編集。</div>
     <div class="modal-toolbar">
+      <div class="tgroup">
+        <label>フォント</label>
+        <select id="tbFont" style="width:auto;">
+          <option value="gothic">ゴシック体</option>
+          <option value="mincho">明朝体</option>
+          <option value="maru">丸ゴシック</option>
+          <option value="mono">等幅</option>
+        </select>
+      </div>
       <div class="tgroup">
         <label>文字サイズ (%)</label>
         <input type="number" id="tbFontSize" min="1" max="30" value="5">
@@ -553,6 +579,8 @@ const cellCountHint = document.getElementById('cellCountHint');
 const pageSizeSel = document.getElementById('pageSize');
 const orientSeg = document.getElementById('orientSeg');
 const marginInput = document.getElementById('marginInput');
+const fileNameInput = document.getElementById('fileNameInput');
+const qualityInput = document.getElementById('qualityInput');
 const pagesStrip = document.getElementById('pagesStrip');
 const modalOverlay = document.getElementById('modalOverlay');
 const modalTitle = document.getElementById('modalTitle');
@@ -562,7 +590,15 @@ const stageWrap = document.getElementById('stageWrap');
 const stageImg = document.getElementById('stageImg');
 const tbFontSize = document.getElementById('tbFontSize');
 const tbColor = document.getElementById('tbColor');
+const tbFont = document.getElementById('tbFont');
 const toolbarNote = document.getElementById('toolbarNote');
+
+const FONT_STACKS = {
+  gothic: "'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic','Meiryo',sans-serif",
+  mincho: "'Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif",
+  maru:   "'Kosugi Maru','Hiragino Maru Gothic ProN',sans-serif",
+  mono:   "'IBM Plex Mono','MS Gothic',monospace"
+};
 
 let editingImgIdx = null;
 let selectedTextId = null;
@@ -786,6 +822,7 @@ function renderSheetMap() {
           tdiv.style.top = (offY + tb.yRatio * dispH) + 'px';
           tdiv.style.fontSize = Math.max(4, (tb.fontSize / 100) * dispH) + 'px';
           tdiv.style.color = tb.color;
+          tdiv.style.fontFamily = FONT_STACKS[tb.font] || FONT_STACKS.gothic;
           tdiv.textContent = tb.text;
           cdiv.appendChild(tdiv);
         });
@@ -869,7 +906,8 @@ stageWrap.addEventListener('click', e => {
     xRatio: Math.min(Math.max(xRatio, 0), 0.95),
     yRatio: Math.min(Math.max(yRatio, 0), 0.95),
     fontSize: 5,
-    color: '#ffffff'
+    color: '#ffffff',
+    font: 'gothic'
   };
   im.texts.push(tb);
   selectedTextId = tb.id;
@@ -896,6 +934,7 @@ function renderStageTextboxes() {
     div.style.top = (tb.yRatio * 100) + '%';
     div.style.fontSize = Math.max(8, (tb.fontSize / 100) * stageH) + 'px';
     div.style.color = tb.color;
+    div.style.fontFamily = FONT_STACKS[tb.font] || FONT_STACKS.gothic;
     div.textContent = tb.text;
     div.dataset.id = tb.id;
 
@@ -955,6 +994,7 @@ function startEditTextbox(div, tb) {
   const ta = document.createElement('textarea');
   ta.value = tb.text;
   ta.style.fontSize = div.style.fontSize;
+  ta.style.fontFamily = FONT_STACKS[tb.font] || FONT_STACKS.gothic;
   ta.style.color = tb.color;
   ta.rows = Math.max(1, tb.text.split('\n').length);
   div.textContent = '';
@@ -985,12 +1025,15 @@ function syncToolbar() {
   if (tb) {
     tbFontSize.disabled = false;
     tbColor.disabled = false;
+    tbFont.disabled = false;
     tbFontSize.value = tb.fontSize;
     tbColor.value = tb.color;
+    tbFont.value = tb.font || 'gothic';
     toolbarNote.style.display = 'none';
   } else {
     tbFontSize.disabled = true;
     tbColor.disabled = true;
+    tbFont.disabled = true;
     toolbarNote.style.display = 'inline';
   }
 }
@@ -1009,6 +1052,13 @@ tbColor.addEventListener('input', () => {
   tb.color = tbColor.value;
   renderStageTextboxes();
 });
+tbFont.addEventListener('change', () => {
+  const im = images[editingImgIdx];
+  const tb = im && im.texts.find(t => t.id === selectedTextId);
+  if (!tb) return;
+  tb.font = tbFont.value;
+  renderStageTextboxes();
+});
 
 function hexToRgb(hex) {
   const m = hex.replace('#', '');
@@ -1016,65 +1066,134 @@ function hexToRgb(hex) {
   return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
 }
 
+// jsPDFの標準フォントは日本語グリフを持たないため、テキストはCanvasで
+// ラスタライズしてPNG画像としてPDFに埋め込む（フォント埋め込み不要・文字化けしない）
+const TEXT_PX_PER_MM = 10; // 約254dpi相当の描画解像度
+const TEXT_FONT_STACK = "'Noto Sans JP','Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic','Meiryo',sans-serif";
+
+function renderTextToDataUrl(text, colorHex, fontSizeMm, fontStack) {
+  const stack = fontStack || TEXT_FONT_STACK;
+  const fontPx = Math.max(6, fontSizeMm * TEXT_PX_PER_MM);
+  const lines = text.split('\n');
+  const measureCanvas = document.createElement('canvas');
+  const mctx = measureCanvas.getContext('2d');
+  mctx.font = `${fontPx}px ${stack}`;
+  let maxWidth = 1;
+  lines.forEach(line => {
+    const w = mctx.measureText(line.length ? line : ' ').width;
+    if (w > maxWidth) maxWidth = w;
+  });
+  const lineHeight = fontPx * 1.3;
+  const padX = fontPx * 0.1;
+  const width = Math.ceil(maxWidth + padX * 2);
+  const height = Math.ceil(lineHeight * lines.length);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.font = `${fontPx}px ${stack}`;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = colorHex;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, padX, lineHeight * (i + 1) - lineHeight * 0.28);
+  });
+
+  return {
+    dataUrl: canvas.toDataURL('image/png'),
+    widthMm: width / TEXT_PX_PER_MM,
+    heightMm: height / TEXT_PX_PER_MM
+  };
+}
+
+// 出力設定: 画質(JPEG)を落として容量を圧縮する場合に使用
+function toJpegDataUrl(dataUrl, naturalW, naturalH, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = naturalW;
+      canvas.height = naturalH;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, naturalW, naturalH);
+      ctx.drawImage(img, 0, 0, naturalW, naturalH);
+      resolve(canvas.toDataURL('image/jpeg', Math.min(1, Math.max(0.05, quality / 100))));
+    };
+    img.src = dataUrl;
+  });
+}
+
+async function buildOutputImageMap(quality) {
+  const map = {};
+  if (quality >= 100) {
+    images.forEach(im => { map[im.id] = im.dataUrl; });
+    return map;
+  }
+  for (const im of images) {
+    map[im.id] = await toJpegDataUrl(im.dataUrl, im.w, im.h, quality);
+  }
+  return map;
+}
+
 // ---- PDF generation ----
-generateBtn.addEventListener('click', () => {
+generateBtn.addEventListener('click', async () => {
   if (!images.length) return;
   generateBtn.disabled = true;
   const prevLabel = generateBtn.textContent;
   generateBtn.textContent = '生成中…';
+  await new Promise(r => setTimeout(r, 30)); // let the label repaint before heavy work
+  if (document.fonts && document.fonts.ready) {
+    try { await document.fonts.ready; } catch (e) { /* ignore */ }
+  }
 
-  setTimeout(() => {
-    try {
-      const plan = buildPagePlan();
-      let doc = null;
+  try {
+    const quality = Math.min(100, Math.max(1, Number(qualityInput.value) || 90));
+    const imgMap = await buildOutputImageMap(quality);
+    const plan = buildPagePlan();
+    let doc = null;
 
-      plan.forEach((page, idx) => {
-        const orientation = page.w > page.h ? 'landscape' : 'portrait';
-        if (idx === 0) {
-          doc = new jsPDF({ orientation, unit: 'mm', format: [page.w, page.h] });
-        } else {
-          doc.addPage([page.w, page.h], orientation);
+    plan.forEach((page, idx) => {
+      const orientation = page.w > page.h ? 'landscape' : 'portrait';
+      if (idx === 0) {
+        doc = new jsPDF({ orientation, unit: 'mm', format: [page.w, page.h] });
+      } else {
+        doc.addPage([page.w, page.h], orientation);
+      }
+      page.cells.forEach(cell => {
+        const fit = fitContain(cell.image.w, cell.image.h, cell.cw, cell.ch);
+        doc.addImage(
+          imgMap[cell.image.id],
+          undefined,
+          cell.x + fit.dx,
+          cell.y + fit.dy,
+          fit.dw,
+          fit.dh
+        );
+
+        if (cell.image.texts && cell.image.texts.length) {
+          cell.image.texts.forEach(tb => {
+            const fontSizeMm = (tb.fontSize / 100) * fit.dh;
+            const rendered = renderTextToDataUrl(tb.text, tb.color, fontSizeMm, FONT_STACKS[tb.font] || FONT_STACKS.gothic);
+            const x0 = cell.x + fit.dx + tb.xRatio * fit.dw;
+            const y0 = cell.y + fit.dy + tb.yRatio * fit.dh;
+            doc.addImage(rendered.dataUrl, 'PNG', x0, y0, rendered.widthMm, rendered.heightMm);
+          });
         }
-        page.cells.forEach(cell => {
-          const fit = fitContain(cell.image.w, cell.image.h, cell.cw, cell.ch);
-          doc.addImage(
-            cell.image.dataUrl,
-            undefined,
-            cell.x + fit.dx,
-            cell.y + fit.dy,
-            fit.dw,
-            fit.dh
-          );
-
-          if (cell.image.texts && cell.image.texts.length) {
-            cell.image.texts.forEach(tb => {
-              const lines = tb.text.split('\n');
-              const fontSizeMm = (tb.fontSize / 100) * fit.dh;
-              const fontSizePt = fontSizeMm * 2.83465;
-              const lineHeightMm = fontSizeMm * 1.2;
-              const rgb = hexToRgb(tb.color);
-              doc.setFont('helvetica', 'normal');
-              doc.setFontSize(fontSizePt);
-              doc.setTextColor(rgb.r, rgb.g, rgb.b);
-              const x0 = cell.x + fit.dx + tb.xRatio * fit.dw;
-              const y0 = cell.y + fit.dy + tb.yRatio * fit.dh;
-              lines.forEach((line, li) => {
-                doc.text(line, x0, y0 + fontSizeMm + li * lineHeightMm);
-              });
-            });
-          }
-        });
       });
+    });
 
-      doc.save('combined.pdf');
-    } catch (err) {
-      alert('PDF生成中にエラーが発生しました: ' + err.message);
-      console.error(err);
-    } finally {
-      generateBtn.disabled = false;
-      generateBtn.textContent = prevLabel;
-    }
-  }, 30);
+    let fname = (fileNameInput.value || 'combined').trim();
+    if (!fname) fname = 'combined';
+    if (!/\.pdf$/i.test(fname)) fname += '.pdf';
+    doc.save(fname);
+  } catch (err) {
+    alert('PDF生成中にエラーが発生しました: ' + err.message);
+    console.error(err);
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.textContent = prevLabel;
+  }
 });
 
 renderAll();
