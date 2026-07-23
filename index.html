@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>画像 → PDF 結合ツール</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #1a1d21;
+    --panel: #22262b;
+    --panel-2: #262b31;
+    --border: #33383e;
+    --text: #e8eaed;
+    --muted: #8b939b;
+    --accent: #5eb1d6;
+    --accent-dim: #3a5a68;
+    --warn: #e8a33d;
+    --danger: #d6685e;
+    --mono: 'IBM Plex Mono', 'Courier New', monospace;
+    --sans: 'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  .app {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    min-height: 100vh;
+  }
+  @media (max-width: 800px){
+    .app { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- header ---------- */
+  .topbar {
+    grid-column: 1 / -1;
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .topbar .mark {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    border: 1px solid var(--accent-dim);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .topbar h1 { font-size: 15px; font-weight: 600; margin: 0; }
+  .topbar .sub { color: var(--muted); font-size: 12px; margin-left: auto; font-family: var(--mono); }
+
+  /* ---------- sidebar ---------- */
+  .sidebar {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 18px;
+    display: flex; flex-direction: column; gap: 20px;
+    height: fit-content;
+  }
+  .field-group { display: flex; flex-direction: column; gap: 8px; }
+  .field-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .seg {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .seg button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    padding: 8px 6px;
+    font-size: 12.5px;
+    font-family: var(--sans);
+    cursor: pointer;
+    border-right: 1px solid var(--border);
+    transition: background .12s, color .12s;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button.active { background: var(--accent-dim); color: #fff; }
+  .seg button:hover:not(.active) { background: #2b3036; color: var(--text); }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  select, input[type="number"], input[type="text"] {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 8px;
+    border-radius: 5px;
+    font-family: var(--sans);
+    font-size: 13px;
+  }
+  input[type="number"]:disabled, select:disabled { opacity: 0.4; }
+
+  .hint { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
+  .btn {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  .btn:hover { border-color: var(--accent-dim); background: #2b3036; }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #10181c;
+    font-weight: 600;
+  }
+  .btn.primary:hover { background: #74c0e3; }
+  .btn.primary:disabled { background: #3a444a; border-color: #3a444a; color: var(--muted); cursor: not-allowed; }
+  .btn.ghost { background: transparent; }
+  .btn.ghost:hover { background: #2b3036; }
+
+  .divider { height: 1px; background: var(--border); margin: 2px 0; }
+
+  .stat-line {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    display: flex; justify-content: space-between;
+  }
+  .stat-line b { color: var(--text); font-weight: 600; }
+
+  /* ---------- main area ---------- */
+  .main { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 28px 20px;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone.drag-over { border-color: var(--accent); background: rgba(94,177,214,0.06); color: var(--text); }
+  .dropzone .big { font-size: 13px; color: var(--text); margin-bottom: 4px; }
+  .dropzone .small { font-size: 11.5px; font-family: var(--mono); }
+  #fileInput { display: none; }
+
+  /* thumbnail sortable list */
+  .thumbs-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .thumbs-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .thumbs-header .title { font-size: 12px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase;}
+  .thumbs {
+    display: flex; flex-wrap: wrap; gap: 10px;
+  }
+  .empty-msg { color: var(--muted); font-size: 12.5px; padding: 10px 2px; }
+
+  .thumb {
+    position: relative;
+    width: 108px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: grab;
+    user-select: none;
+  }
+  .thumb.dragging { opacity: 0.35; }
+  .thumb.drag-over-target { outline: 2px solid var(--accent); }
+  .thumb img {
+    width: 100%; height: 88px; object-fit: cover;
+    display: block;
+    background: #10141a;
+  }
+  .thumb .idx {
+    position: absolute; top: 4px; left: 4px;
+    background: rgba(0,0,0,0.55);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .thumb .rm {
+    position: absolute; top: 4px; right: 4px;
+    background: rgba(0,0,0,0.55);
+    color: var(--danger);
+    border: none;
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .thumb .rm:hover { background: rgba(214,104,94,0.85); color: #fff; }
+  .thumb .fname {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 4px 6px 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--mono);
+  }
+
+  /* sheet map — the signature element: live imposition preview */
+  .sheetmap-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .sheetmap-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .sheetmap-header .title { font-size: 12px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase;}
+  .pages-strip {
+    display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px;
+  }
+  .page-card {
+    flex: 0 0 auto;
+    background: #0f1215;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    position: relative;
+  }
+  .page-card .page-num {
+    position: absolute; bottom: -18px; left: 0; right: 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+  .cell {
+    position: absolute;
+    border: 1px dashed var(--accent-dim);
+    background: rgba(94,177,214,0.05);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    border-radius: 2px;
+  }
+  .cell img { width: 100%; height: 100%; object-fit: contain; }
+  .cell .cellnum {
+    position: absolute; top: 2px; left: 2px;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    color: var(--accent);
+    background: rgba(0,0,0,0.4);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .cell .cell-text {
+    position: absolute;
+    white-space: pre;
+    line-height: 1.2;
+    pointer-events: none;
+  }
+
+  /* text-add button on thumb */
+  .thumb .txt {
+    position: absolute; bottom: 22px; right: 4px;
+    background: rgba(0,0,0,0.55);
+    color: var(--accent);
+    border: none;
+    width: 20px; height: 20px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: var(--mono);
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .thumb .txt:hover { background: rgba(94,177,214,0.85); color: #10181c; }
+  .thumb .txt-badge {
+    position: absolute; bottom: 22px; left: 4px;
+    background: rgba(94,177,214,0.85);
+    color: #10181c;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 0 4px;
+    border-radius: 3px;
+  }
+
+  /* ---------- text editor modal ---------- */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(10,12,14,0.72);
+    z-index: 100;
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    max-width: 92vw;
+    max-height: 92vh;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .modal-head .title { font-size: 13px; font-family: var(--mono); color: var(--muted); }
+  .modal-hint { font-size: 11.5px; color: var(--muted); }
+  .modal-toolbar {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+  }
+  .modal-toolbar .tgroup { display: flex; align-items: center; gap: 6px; }
+  .modal-toolbar label { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .modal-toolbar input[type="number"] { width: 64px; }
+  .modal-toolbar input[type="color"] {
+    width: 32px; height: 28px; border: 1px solid var(--border); border-radius: 5px;
+    background: var(--panel-2); padding: 2px; cursor: pointer;
+  }
+  .modal-toolbar .disabled-note { color: var(--muted); font-size: 11.5px; }
+
+  .stage-wrap {
+    position: relative;
+    background: #0f1215;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: crosshair;
+    touch-action: none;
+  }
+  .stage-wrap img { display: block; width: 100%; height: 100%; user-select: none; pointer-events: none; }
+
+  .textbox {
+    position: absolute;
+    cursor: move;
+    padding: 2px 4px;
+    white-space: pre;
+    line-height: 1.2;
+    border: 1px dashed transparent;
+  }
+  .textbox:hover { border-color: rgba(94,177,214,0.5); }
+  .textbox.selected { border-color: var(--accent); background: rgba(94,177,214,0.08); }
+  .textbox .del {
+    position: absolute; top: -10px; right: -10px;
+    width: 18px; height: 18px;
+    background: var(--danger);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    display: none;
+  }
+  .textbox.selected .del { display: block; }
+  .textbox textarea {
+    background: rgba(0,0,0,0.55);
+    border: 1px solid var(--accent);
+    color: inherit;
+    font: inherit;
+    padding: 0;
+    resize: none;
+    outline: none;
+    min-width: 60px;
+  }
+
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <span class="mark">IMG→PDF</span>
+    <h1>画像 → PDF 結合ツール</h1>
+    <span class="sub" id="statusText">0 枚読み込み済み</span>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <div class="field-group">
+      <div class="field-label">レイアウト</div>
+      <div class="seg" id="layoutSeg">
+        <button class="active" data-layout="single">1ページ1画像</button>
+        <button data-layout="grid">グリッド配置</button>
+      </div>
+    </div>
+
+    <div class="field-group" id="gridFields" style="display:none;">
+      <div class="field-label">グリッド行数 / 列数</div>
+      <div class="row2">
+        <input type="number" id="gridRows" min="1" max="6" value="2">
+        <input type="number" id="gridCols" min="1" max="6" value="2">
+      </div>
+      <div class="hint">1ページあたり <b id="cellCountHint">4</b> 枚配置されます</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field-group">
+      <div class="field-label">用紙サイズ</div>
+      <select id="pageSize">
+        <option value="a4" selected>A4</option>
+        <option value="a3">A3</option>
+        <option value="letter">Letter</option>
+        <option value="b5">B5</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">向き</div>
+      <div class="seg" id="orientSeg">
+        <button class="active" data-orient="portrait">縦</button>
+        <button data-orient="landscape">横</button>
+        <button data-orient="auto">画像に合わせる</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">余白 (mm)</div>
+      <input type="number" id="marginInput" min="0" max="50" value="10">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field-group">
+      <button class="btn ghost" id="clearBtn">すべてクリア</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field-group">
+      <div class="field-label">出力設定</div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">ファイル名</div>
+      <input type="text" id="fileNameInput" value="combined" placeholder="combined">
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">画像品質（JPEG, %）</div>
+      <input type="number" id="qualityInput" min="1" max="100" value="90">
+      <div class="hint">100%はPNG相当（無劣化・容量大）。下げるほどファイルサイズが小さくなります。</div>
+    </div>
+
+    <div class="stat-line"><span>画像枚数</span><b id="statImgCount">0</b></div>
+    <div class="stat-line"><span>出力ページ数(予測)</span><b id="statPageCount">0</b></div>
+
+    <button class="btn primary" id="generateBtn" disabled>PDFを生成してダウンロード</button>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <div class="dropzone" id="dropzone">
+      <div class="big">画像をドラッグ&ドロップ、またはクリックして選択</div>
+      <div class="small">JPEG / PNG / WebP 対応・複数選択可</div>
+      <input type="file" id="fileInput" accept="image/*" multiple>
+    </div>
+
+    <div class="thumbs-wrap">
+      <div class="thumbs-header">
+        <span class="title">画像リスト（ドラッグで並び替え）</span>
+      </div>
+      <div class="thumbs" id="thumbs">
+        <div class="empty-msg" id="emptyMsg">まだ画像がありません</div>
+      </div>
+    </div>
+
+    <div class="sheetmap-wrap">
+      <div class="sheetmap-header">
+        <span class="title">シートマップ（配置プレビュー）</span>
+      </div>
+      <div class="pages-strip" id="pagesStrip">
+        <div class="empty-msg">画像を追加するとページ構成が表示されます</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="title" id="modalTitle">テキストを追加</span>
+      <button class="btn ghost" id="modalCloseBtn" style="width:auto; padding:6px 14px;">閉じる</button>
+    </div>
+    <div class="modal-hint">画像をクリックしてテキストを追加。ドラッグで移動、ダブルクリックで編集。</div>
+    <div class="modal-toolbar">
+      <div class="tgroup">
+        <label>文字サイズ (%)</label>
+        <input type="number" id="tbFontSize" min="1" max="30" value="5">
+      </div>
+      <div class="tgroup">
+        <label>色</label>
+        <input type="color" id="tbColor" value="#ffffff">
+      </div>
+      <span class="disabled-note" id="toolbarNote">テキストボックスを選択してください</span>
+    </div>
+    <div class="stage-wrap" id="stageWrap">
+      <img id="stageImg" src="" alt="">
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" id="modalDoneBtn" style="width:auto; padding:9px 18px;">完了</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const { jsPDF } = window.jspdf;
+
+// ---- state ----
+let images = []; // { id, file, dataUrl, w, h, name }
+let dragIdx = null;
+let layoutMode = 'single';
+let orient = 'portrait';
+
+const PAGE_SIZES = {
+  a4: [210, 297],
+  a3: [297, 420],
+  letter: [215.9, 279.4],
+  b5: [176, 250],
+};
+
+// ---- element refs ----
+const fileInput = document.getElementById('fileInput');
+const dropzone = document.getElementById('dropzone');
+const thumbsEl = document.getElementById('thumbs');
+const emptyMsg = document.getElementById('emptyMsg');
+const statusText = document.getElementById('statusText');
+const statImgCount = document.getElementById('statImgCount');
+const statPageCount = document.getElementById('statPageCount');
+const generateBtn = document.getElementById('generateBtn');
+const clearBtn = document.getElementById('clearBtn');
+const layoutSeg = document.getElementById('layoutSeg');
+const gridFields = document.getElementById('gridFields');
+const gridRows = document.getElementById('gridRows');
+const gridCols = document.getElementById('gridCols');
+const cellCountHint = document.getElementById('cellCountHint');
+const pageSizeSel = document.getElementById('pageSize');
+const orientSeg = document.getElementById('orientSeg');
+const marginInput = document.getElementById('marginInput');
+const fileNameInput = document.getElementById('fileNameInput');
+const qualityInput = document.getElementById('qualityInput');
+const pagesStrip = document.getElementById('pagesStrip');
+const modalOverlay = document.getElementById('modalOverlay');
+const modalTitle = document.getElementById('modalTitle');
+const modalCloseBtn = document.getElementById('modalCloseBtn');
+const modalDoneBtn = document.getElementById('modalDoneBtn');
+const stageWrap = document.getElementById('stageWrap');
+const stageImg = document.getElementById('stageImg');
+const tbFontSize = document.getElementById('tbFontSize');
+const tbColor = document.getElementById('tbColor');
+const toolbarNote = document.getElementById('toolbarNote');
+
+let editingImgIdx = null;
+let selectedTextId = null;
+
+// ---- file loading ----
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, e => {
+  e.preventDefault(); dropzone.classList.add('drag-over');
+}));
+['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => {
+  e.preventDefault(); dropzone.classList.remove('drag-over');
+}));
+dropzone.addEventListener('drop', e => {
+  if (e.dataTransfer.files && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+});
+
+function handleFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        images.push({
+          id: 'im_' + Math.random().toString(36).slice(2, 9),
+          dataUrl: ev.target.result,
+          w: img.naturalWidth,
+          h: img.naturalHeight,
+          name: file.name,
+          texts: []
+        });
+        renderAll();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  fileInput.value = '';
+}
+
+// ---- layout controls ----
+layoutSeg.addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  [...layoutSeg.children].forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  layoutMode = btn.dataset.layout;
+  gridFields.style.display = layoutMode === 'grid' ? 'flex' : 'none';
+  renderAll();
+});
+
+orientSeg.addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  [...orientSeg.children].forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  orient = btn.dataset.orient;
+  renderAll();
+});
+
+[gridRows, gridCols, pageSizeSel, marginInput].forEach(el => el.addEventListener('input', renderAll));
+
+clearBtn.addEventListener('click', () => {
+  images = [];
+  renderAll();
+});
+
+// ---- thumbnail rendering + drag reorder ----
+function renderThumbs() {
+  thumbsEl.querySelectorAll('.thumb').forEach(n => n.remove());
+  emptyMsg.style.display = images.length ? 'none' : 'block';
+
+  images.forEach((im, idx) => {
+    const div = document.createElement('div');
+    div.className = 'thumb';
+    div.draggable = true;
+    div.dataset.idx = idx;
+    div.innerHTML = `
+      <span class="idx">${idx + 1}</span>
+      <button class="rm" data-idx="${idx}" title="削除">×</button>
+      <img src="${im.dataUrl}" alt="">
+      ${im.texts && im.texts.length ? `<span class="txt-badge">T×${im.texts.length}</span>` : ''}
+      <button class="txt" data-idx="${idx}" title="テキストを追加">T</button>
+      <div class="fname">${im.name}</div>
+    `;
+    div.addEventListener('dragstart', () => { dragIdx = idx; div.classList.add('dragging'); });
+    div.addEventListener('dragend', () => { div.classList.remove('dragging'); dragIdx = null; });
+    div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over-target'); });
+    div.addEventListener('dragleave', () => div.classList.remove('drag-over-target'));
+    div.addEventListener('drop', e => {
+      e.preventDefault();
+      div.classList.remove('drag-over-target');
+      const targetIdx = idx;
+      if (dragIdx === null || dragIdx === targetIdx) return;
+      const [moved] = images.splice(dragIdx, 1);
+      images.splice(targetIdx, 0, moved);
+      renderAll();
+    });
+    div.querySelector('.rm').addEventListener('click', e => {
+      e.stopPropagation();
+      images.splice(Number(e.currentTarget.dataset.idx), 1);
+      renderAll();
+    });
+    div.querySelector('.txt').addEventListener('click', e => {
+      e.stopPropagation();
+      openTextModal(Number(e.currentTarget.dataset.idx));
+    });
+    thumbsEl.appendChild(div);
+  });
+}
+
+// ---- layout math (shared between preview + pdf) ----
+function getPageDims() {
+  let [w, h] = PAGE_SIZES[pageSizeSel.value];
+  let effectiveOrient = orient;
+  if (orient === 'landscape') { [w, h] = [h, w]; }
+  return { w, h, effectiveOrient };
+}
+
+function buildPagePlan() {
+  const margin = Math.max(0, Number(marginInput.value) || 0);
+  const plan = []; // array of { w, h, cells: [{x,y,cw,ch, image}] }
+
+  if (layoutMode === 'single') {
+    images.forEach(im => {
+      let [w, h] = PAGE_SIZES[pageSizeSel.value];
+      let isLandscape;
+      if (orient === 'auto') {
+        isLandscape = im.w > im.h;
+      } else if (orient === 'landscape') {
+        isLandscape = true;
+      } else {
+        isLandscape = false;
+      }
+      if (isLandscape) [w, h] = [Math.max(w,h), Math.min(w,h)];
+      else [w, h] = [Math.min(w,h), Math.max(w,h)];
+
+      const cw = w - margin * 2;
+      const ch = h - margin * 2;
+      plan.push({ w, h, cells: [{ x: margin, y: margin, cw, ch, image: im }] });
+    });
+  } else {
+    const rows = Math.max(1, Number(gridRows.value) || 1);
+    const cols = Math.max(1, Number(gridCols.value) || 1);
+    const perPage = rows * cols;
+    let [w, h] = PAGE_SIZES[pageSizeSel.value];
+    if (orient === 'landscape' || (orient === 'auto' && cols > rows)) [w, h] = [Math.max(w,h), Math.min(w,h)];
+    else [w, h] = [Math.min(w,h), Math.max(w,h)];
+
+    const gap = margin / 2;
+    const gridW = w - margin * 2;
+    const gridH = h - margin * 2;
+    const cellW = (gridW - gap * (cols - 1)) / cols;
+    const cellH = (gridH - gap * (rows - 1)) / rows;
+
+    for (let i = 0; i < images.length; i += perPage) {
+      const chunk = images.slice(i, i + perPage);
+      const cells = chunk.map((im, ci) => {
+        const r = Math.floor(ci / cols);
+        const c = ci % cols;
+        return {
+          x: margin + c * (cellW + gap),
+          y: margin + r * (cellH + gap),
+          cw: cellW, ch: cellH,
+          image: im
+        };
+      });
+      plan.push({ w, h, cells });
+    }
+  }
+  return plan;
+}
+
+function fitContain(imW, imH, boxW, boxH) {
+  const scale = Math.min(boxW / imW, boxH / imH);
+  const dw = imW * scale, dh = imH * scale;
+  return { dw, dh, dx: (boxW - dw) / 2, dy: (boxH - dh) / 2 };
+}
+
+// ---- sheet map preview ----
+function renderSheetMap() {
+  pagesStrip.innerHTML = '';
+  if (!images.length) {
+    pagesStrip.innerHTML = '<div class="empty-msg">画像を追加するとページ構成が表示されます</div>';
+    return;
+  }
+  const plan = buildPagePlan();
+  const previewScale = 0.6; // px per mm
+
+  plan.forEach((page, pIdx) => {
+    const card = document.createElement('div');
+    card.className = 'page-card';
+    const pw = page.w * previewScale;
+    const ph = page.h * previewScale;
+    card.style.width = pw + 'px';
+    card.style.height = ph + 'px';
+
+    page.cells.forEach((cell, cIdx) => {
+      const cdiv = document.createElement('div');
+      cdiv.className = 'cell';
+      cdiv.style.left = (cell.x * previewScale) + 'px';
+      cdiv.style.top = (cell.y * previewScale) + 'px';
+      cdiv.style.width = (cell.cw * previewScale) + 'px';
+      cdiv.style.height = (cell.ch * previewScale) + 'px';
+      cdiv.innerHTML = `<span class="cellnum">${cIdx + 1}</span><img src="${cell.image.dataUrl}">`;
+
+      if (cell.image.texts && cell.image.texts.length) {
+        const fit = fitContain(cell.image.w, cell.image.h, cell.cw, cell.ch);
+        const cellPxW = cell.cw * previewScale;
+        const cellPxH = cell.ch * previewScale;
+        const dispW = fit.dw * previewScale;
+        const dispH = fit.dh * previewScale;
+        const offX = fit.dx * previewScale;
+        const offY = fit.dy * previewScale;
+        cell.image.texts.forEach(tb => {
+          const tdiv = document.createElement('div');
+          tdiv.className = 'cell-text';
+          tdiv.style.left = (offX + tb.xRatio * dispW) + 'px';
+          tdiv.style.top = (offY + tb.yRatio * dispH) + 'px';
+          tdiv.style.fontSize = Math.max(4, (tb.fontSize / 100) * dispH) + 'px';
+          tdiv.style.color = tb.color;
+          tdiv.textContent = tb.text;
+          cdiv.appendChild(tdiv);
+        });
+      }
+
+      card.appendChild(cdiv);
+    });
+
+    const pnum = document.createElement('div');
+    pnum.className = 'page-num';
+    pnum.textContent = `p.${pIdx + 1}`;
+    card.appendChild(pnum);
+
+    pagesStrip.appendChild(card);
+  });
+
+  if (layoutMode === 'grid') {
+    const rows = Math.max(1, Number(gridRows.value) || 1);
+    const cols = Math.max(1, Number(gridCols.value) || 1);
+    cellCountHint.textContent = rows * cols;
+  }
+}
+
+// ---- stats / status ----
+function renderStats() {
+  statImgCount.textContent = images.length;
+  statusText.textContent = `${images.length} 枚読み込み済み`;
+  const plan = buildPagePlan();
+  statPageCount.textContent = plan.length;
+  generateBtn.disabled = images.length === 0;
+}
+
+function renderAll() {
+  renderThumbs();
+  renderSheetMap();
+  renderStats();
+}
+
+// ---- text overlay editor modal ----
+function openTextModal(idx) {
+  editingImgIdx = idx;
+  selectedTextId = null;
+  const im = images[idx];
+  modalTitle.textContent = `テキストを追加 — ${im.name}`;
+  stageImg.src = im.dataUrl;
+  modalOverlay.classList.add('open');
+
+  // size the stage to fit viewport while respecting image aspect ratio
+  const applySize = () => {
+    const maxW = Math.min(window.innerWidth * 0.86, 760);
+    const maxH = window.innerHeight * 0.55;
+    let w = im.w, h = im.h;
+    const scale = Math.min(maxW / w, maxH / h, 1.6);
+    w *= scale; h *= scale;
+    stageWrap.style.width = w + 'px';
+    stageWrap.style.height = h + 'px';
+  };
+  applySize();
+  renderStageTextboxes();
+}
+
+function closeTextModal() {
+  modalOverlay.classList.remove('open');
+  editingImgIdx = null;
+  selectedTextId = null;
+  renderAll(); // refresh thumbnails (badge) + sheet map with new texts
+}
+modalCloseBtn.addEventListener('click', closeTextModal);
+modalDoneBtn.addEventListener('click', closeTextModal);
+modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeTextModal(); });
+
+stageWrap.addEventListener('click', e => {
+  if (e.target !== stageWrap && e.target !== stageImg) return; // ignore clicks on existing textboxes
+  const im = images[editingImgIdx];
+  const rect = stageWrap.getBoundingClientRect();
+  const xRatio = (e.clientX - rect.left) / rect.width;
+  const yRatio = (e.clientY - rect.top) / rect.height;
+  const tb = {
+    id: 'tx_' + Math.random().toString(36).slice(2, 9),
+    text: 'テキスト',
+    xRatio: Math.min(Math.max(xRatio, 0), 0.95),
+    yRatio: Math.min(Math.max(yRatio, 0), 0.95),
+    fontSize: 5,
+    color: '#ffffff'
+  };
+  im.texts.push(tb);
+  selectedTextId = tb.id;
+  renderStageTextboxes();
+});
+
+function selectTextbox(id, div) {
+  selectedTextId = id;
+  stageWrap.querySelectorAll('.textbox').forEach(d => d.classList.remove('selected'));
+  if (div) div.classList.add('selected');
+  syncToolbar();
+}
+
+function renderStageTextboxes() {
+  stageWrap.querySelectorAll('.textbox').forEach(n => n.remove());
+  const im = images[editingImgIdx];
+  if (!im) return;
+  const stageH = stageWrap.getBoundingClientRect().height || stageWrap.offsetHeight;
+
+  im.texts.forEach(tb => {
+    const div = document.createElement('div');
+    div.className = 'textbox' + (tb.id === selectedTextId ? ' selected' : '');
+    div.style.left = (tb.xRatio * 100) + '%';
+    div.style.top = (tb.yRatio * 100) + '%';
+    div.style.fontSize = Math.max(8, (tb.fontSize / 100) * stageH) + 'px';
+    div.style.color = tb.color;
+    div.textContent = tb.text;
+    div.dataset.id = tb.id;
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'del';
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      im.texts = im.texts.filter(t => t.id !== tb.id);
+      if (selectedTextId === tb.id) selectedTextId = null;
+      renderStageTextboxes();
+    });
+    div.appendChild(delBtn);
+
+    div.addEventListener('click', e => {
+      e.stopPropagation();
+      selectTextbox(tb.id, div);
+    });
+
+    div.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      startEditTextbox(div, tb);
+    });
+
+    // drag to reposition
+    div.addEventListener('pointerdown', e => {
+      if (e.target === delBtn) return;
+      if (div.querySelector('textarea')) return; // currently editing text content
+      selectTextbox(tb.id, div);
+      const rect = stageWrap.getBoundingClientRect();
+      const onMove = ev => {
+        let xRatio = (ev.clientX - rect.left) / rect.width;
+        let yRatio = (ev.clientY - rect.top) / rect.height;
+        xRatio = Math.min(Math.max(xRatio, 0), 0.97);
+        yRatio = Math.min(Math.max(yRatio, 0), 0.97);
+        tb.xRatio = xRatio; tb.yRatio = yRatio;
+        div.style.left = (xRatio * 100) + '%';
+        div.style.top = (yRatio * 100) + '%';
+      };
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        syncToolbar();
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+
+    stageWrap.appendChild(div);
+  });
+
+  syncToolbar();
+}
+
+function startEditTextbox(div, tb) {
+  div.querySelectorAll('.del').forEach(d => d.style.display = 'none');
+  const ta = document.createElement('textarea');
+  ta.value = tb.text;
+  ta.style.fontSize = div.style.fontSize;
+  ta.style.color = tb.color;
+  ta.rows = Math.max(1, tb.text.split('\n').length);
+  div.textContent = '';
+  div.appendChild(ta);
+  ta.focus();
+  ta.select();
+
+  const finish = () => {
+    const val = ta.value.trim();
+    if (!val) {
+      const im = images[editingImgIdx];
+      im.texts = im.texts.filter(t => t.id !== tb.id);
+    } else {
+      tb.text = ta.value;
+    }
+    renderStageTextboxes();
+  };
+  ta.addEventListener('blur', finish);
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ta.blur(); }
+    if (e.key === 'Escape') { e.preventDefault(); ta.blur(); }
+  });
+}
+
+function syncToolbar() {
+  const im = images[editingImgIdx];
+  const tb = im ? im.texts.find(t => t.id === selectedTextId) : null;
+  if (tb) {
+    tbFontSize.disabled = false;
+    tbColor.disabled = false;
+    tbFontSize.value = tb.fontSize;
+    tbColor.value = tb.color;
+    toolbarNote.style.display = 'none';
+  } else {
+    tbFontSize.disabled = true;
+    tbColor.disabled = true;
+    toolbarNote.style.display = 'inline';
+  }
+}
+
+tbFontSize.addEventListener('input', () => {
+  const im = images[editingImgIdx];
+  const tb = im && im.texts.find(t => t.id === selectedTextId);
+  if (!tb) return;
+  tb.fontSize = Math.max(1, Number(tbFontSize.value) || 5);
+  renderStageTextboxes();
+});
+tbColor.addEventListener('input', () => {
+  const im = images[editingImgIdx];
+  const tb = im && im.texts.find(t => t.id === selectedTextId);
+  if (!tb) return;
+  tb.color = tbColor.value;
+  renderStageTextboxes();
+});
+
+function hexToRgb(hex) {
+  const m = hex.replace('#', '');
+  const bigint = parseInt(m, 16);
+  return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+}
+
+// jsPDFの標準フォントは日本語グリフを持たないため、テキストはCanvasで
+// ラスタライズしてPNG画像としてPDFに埋め込む（フォント埋め込み不要・文字化けしない）
+const TEXT_PX_PER_MM = 10; // 約254dpi相当の描画解像度
+const TEXT_FONT_STACK = "'Noto Sans JP','Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic','Meiryo',sans-serif";
+
+function renderTextToDataUrl(text, colorHex, fontSizeMm) {
+  const fontPx = Math.max(6, fontSizeMm * TEXT_PX_PER_MM);
+  const lines = text.split('\n');
+  const measureCanvas = document.createElement('canvas');
+  const mctx = measureCanvas.getContext('2d');
+  mctx.font = `${fontPx}px ${TEXT_FONT_STACK}`;
+  let maxWidth = 1;
+  lines.forEach(line => {
+    const w = mctx.measureText(line.length ? line : ' ').width;
+    if (w > maxWidth) maxWidth = w;
+  });
+  const lineHeight = fontPx * 1.3;
+  const padX = fontPx * 0.1;
+  const width = Math.ceil(maxWidth + padX * 2);
+  const height = Math.ceil(lineHeight * lines.length);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.font = `${fontPx}px ${TEXT_FONT_STACK}`;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = colorHex;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, padX, lineHeight * (i + 1) - lineHeight * 0.28);
+  });
+
+  return {
+    dataUrl: canvas.toDataURL('image/png'),
+    widthMm: width / TEXT_PX_PER_MM,
+    heightMm: height / TEXT_PX_PER_MM
+  };
+}
+
+// 出力設定: 画質(JPEG)を落として容量を圧縮する場合に使用
+function toJpegDataUrl(dataUrl, naturalW, naturalH, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = naturalW;
+      canvas.height = naturalH;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, naturalW, naturalH);
+      ctx.drawImage(img, 0, 0, naturalW, naturalH);
+      resolve(canvas.toDataURL('image/jpeg', Math.min(1, Math.max(0.05, quality / 100))));
+    };
+    img.src = dataUrl;
+  });
+}
+
+async function buildOutputImageMap(quality) {
+  const map = {};
+  if (quality >= 100) {
+    images.forEach(im => { map[im.id] = im.dataUrl; });
+    return map;
+  }
+  for (const im of images) {
+    map[im.id] = await toJpegDataUrl(im.dataUrl, im.w, im.h, quality);
+  }
+  return map;
+}
+
+// ---- PDF generation ----
+generateBtn.addEventListener('click', async () => {
+  if (!images.length) return;
+  generateBtn.disabled = true;
+  const prevLabel = generateBtn.textContent;
+  generateBtn.textContent = '生成中…';
+  await new Promise(r => setTimeout(r, 30)); // let the label repaint before heavy work
+
+  try {
+    const quality = Math.min(100, Math.max(1, Number(qualityInput.value) || 90));
+    const imgMap = await buildOutputImageMap(quality);
+    const plan = buildPagePlan();
+    let doc = null;
+
+    plan.forEach((page, idx) => {
+      const orientation = page.w > page.h ? 'landscape' : 'portrait';
+      if (idx === 0) {
+        doc = new jsPDF({ orientation, unit: 'mm', format: [page.w, page.h] });
+      } else {
+        doc.addPage([page.w, page.h], orientation);
+      }
+      page.cells.forEach(cell => {
+        const fit = fitContain(cell.image.w, cell.image.h, cell.cw, cell.ch);
+        doc.addImage(
+          imgMap[cell.image.id],
+          undefined,
+          cell.x + fit.dx,
+          cell.y + fit.dy,
+          fit.dw,
+          fit.dh
+        );
+
+        if (cell.image.texts && cell.image.texts.length) {
+          cell.image.texts.forEach(tb => {
+            const fontSizeMm = (tb.fontSize / 100) * fit.dh;
+            const rendered = renderTextToDataUrl(tb.text, tb.color, fontSizeMm);
+            const x0 = cell.x + fit.dx + tb.xRatio * fit.dw;
+            const y0 = cell.y + fit.dy + tb.yRatio * fit.dh;
+            doc.addImage(rendered.dataUrl, 'PNG', x0, y0, rendered.widthMm, rendered.heightMm);
+          });
+        }
+      });
+    });
+
+    let fname = (fileNameInput.value || 'combined').trim();
+    if (!fname) fname = 'combined';
+    if (!/\.pdf$/i.test(fname)) fname += '.pdf';
+    doc.save(fname);
+  } catch (err) {
+    alert('PDF生成中にエラーが発生しました: ' + err.message);
+    console.error(err);
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.textContent = prevLabel;
+  }
+});
+
+renderAll();
+</script>
+
+</body>
+</html>
