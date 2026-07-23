@@ -603,6 +603,23 @@ const FONT_STACKS = {
 let editingImgIdx = null;
 let selectedTextId = null;
 
+// 直近に使用した文字設定を記憶し、次に追加するテキストの初期値として引き継ぐ
+function loadLastTextStyle() {
+  const fallback = { fontSize: 5, color: '#ffffff', font: 'gothic' };
+  try {
+    const saved = localStorage.getItem('img2pdf_lastTextStyle');
+    if (saved) return Object.assign(fallback, JSON.parse(saved));
+  } catch (e) { /* localStorageが使えない環境ではメモリ上のみで保持 */ }
+  return fallback;
+}
+let lastTextStyle = loadLastTextStyle();
+
+function saveLastTextStyle(style) {
+  lastTextStyle = { fontSize: style.fontSize, color: style.color, font: style.font };
+  try { localStorage.setItem('img2pdf_lastTextStyle', JSON.stringify(lastTextStyle)); }
+  catch (e) { /* ignore */ }
+}
+
 // ---- file loading ----
 dropzone.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', e => handleFiles(e.target.files));
@@ -905,9 +922,9 @@ stageWrap.addEventListener('click', e => {
     text: 'テキスト',
     xRatio: Math.min(Math.max(xRatio, 0), 0.95),
     yRatio: Math.min(Math.max(yRatio, 0), 0.95),
-    fontSize: 5,
-    color: '#ffffff',
-    font: 'gothic'
+    fontSize: lastTextStyle.fontSize,
+    color: lastTextStyle.color,
+    font: lastTextStyle.font
   };
   im.texts.push(tb);
   selectedTextId = tb.id;
@@ -1043,6 +1060,7 @@ tbFontSize.addEventListener('input', () => {
   const tb = im && im.texts.find(t => t.id === selectedTextId);
   if (!tb) return;
   tb.fontSize = Math.max(1, Number(tbFontSize.value) || 5);
+  saveLastTextStyle(tb);
   renderStageTextboxes();
 });
 tbColor.addEventListener('input', () => {
@@ -1050,6 +1068,7 @@ tbColor.addEventListener('input', () => {
   const tb = im && im.texts.find(t => t.id === selectedTextId);
   if (!tb) return;
   tb.color = tbColor.value;
+  saveLastTextStyle(tb);
   renderStageTextboxes();
 });
 tbFont.addEventListener('change', () => {
@@ -1057,6 +1076,7 @@ tbFont.addEventListener('change', () => {
   const tb = im && im.texts.find(t => t.id === selectedTextId);
   if (!tb) return;
   tb.font = tbFont.value;
+  saveLastTextStyle(tb);
   renderStageTextboxes();
 });
 
