@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>画像 → PDF 結合ツール</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<title>画像/PDF → PDF 結合ツール</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
     --bg: #1a1d21;
@@ -197,6 +198,8 @@
     display: block;
     background: #10141a;
   }
+  .thumb.pdf-thumb { border-color: var(--accent-dim); }
+  .thumb.pdf-thumb img { object-fit: contain; background: #0d1013; }
   .thumb .idx {
     position: absolute; top: 4px; left: 4px;
     background: rgba(0,0,0,0.55);
@@ -227,56 +230,24 @@
     text-overflow: ellipsis;
     font-family: var(--mono);
   }
-
-  /* sheet map — the signature element: live imposition preview */
-  .sheetmap-wrap {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-  }
-  .sheetmap-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-  .sheetmap-header .title { font-size: 12px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase;}
-  .pages-strip {
-    display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px;
-  }
-  .page-card {
-    flex: 0 0 auto;
-    background: #0f1215;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    position: relative;
-  }
-  .page-card .page-num {
-    position: absolute; bottom: -18px; left: 0; right: 0;
-    text-align: center;
+  .thumb .pdf-tag {
+    position: absolute; bottom: 22px; left: 4px;
+    background: rgba(94,177,214,0.85);
+    color: #10181c;
     font-family: var(--mono);
-    font-size: 10.5px;
-    color: var(--muted);
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 0 5px;
+    border-radius: 3px;
   }
-  .cell {
-    position: absolute;
-    border: 1px dashed var(--accent-dim);
-    background: rgba(94,177,214,0.05);
-    display: flex; align-items: center; justify-content: center;
-    overflow: hidden;
-    border-radius: 2px;
-  }
-  .cell img { width: 100%; height: 100%; object-fit: contain; }
-  .cell .cellnum {
-    position: absolute; top: 2px; left: 2px;
+  .thumb .pdf-pages {
+    position: absolute; bottom: 22px; right: 4px;
+    background: rgba(0,0,0,0.55);
+    color: var(--text);
     font-family: var(--mono);
-    font-size: 8.5px;
-    color: var(--accent);
-    background: rgba(0,0,0,0.4);
-    padding: 0 3px;
-    border-radius: 2px;
-  }
-  .cell .cell-text {
-    position: absolute;
-    white-space: pre;
-    line-height: 1.2;
-    pointer-events: none;
+    font-size: 9.5px;
+    padding: 0 4px;
+    border-radius: 3px;
   }
 
   /* text-add button on thumb */
@@ -393,26 +364,98 @@
   }
 
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* ---------- sheet map ---------- */
+  .sheetmap-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .sheetmap-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .sheetmap-header .title { font-size: 12px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase;}
+  .pages-strip {
+    display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px;
+  }
+  .page-card {
+    flex: 0 0 auto;
+    background: #0f1215;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    position: relative;
+  }
+  .page-card .page-num {
+    position: absolute; bottom: -18px; left: 0; right: 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+  .cell {
+    position: absolute;
+    border: 1px dashed var(--accent-dim);
+    background: rgba(94,177,214,0.05);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    border-radius: 2px;
+  }
+  .cell img { width: 100%; height: 100%; object-fit: contain; }
+  .cell .cellnum {
+    position: absolute; top: 2px; left: 2px;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    color: var(--accent);
+    background: rgba(0,0,0,0.4);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .cell .cell-text {
+    position: absolute;
+    white-space: pre;
+    line-height: 1.2;
+    pointer-events: none;
+  }
+  .pdf-bundle-card {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid var(--accent-dim);
+    background: rgba(94,177,214,0.06);
+  }
+  .pdf-bundle-card img {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain;
+    border: 1px solid var(--border);
+    background: #0d1013;
+  }
+  .pdf-bundle-card .pb-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    text-align: center;
+    line-height: 1.4;
+  }
 </style>
 </head>
 <body>
 
 <div class="app">
   <div class="topbar">
-    <span class="mark">IMGs→PDF</span>
-    <h1>画像 → PDF 結合ツール</h1>
-    <span class="sub" id="statusText">0 枚読み込み済み</span>
+    <span class="mark">IMG/PDF→PDF</span>
+    <h1>画像/PDF → PDF 結合ツール</h1>
+    <span class="sub" id="statusText">0 件読み込み済み</span>
   </div>
 
   <!-- Sidebar -->
   <div class="sidebar">
 
     <div class="field-group">
-      <div class="field-label">レイアウト</div>
+      <div class="field-label">レイアウト（画像用）</div>
       <div class="seg" id="layoutSeg">
         <button class="active" data-layout="single">1ページ1画像</button>
         <button data-layout="grid">グリッド配置</button>
       </div>
+      <div class="hint">追加したPDFは元のページ構成のまま挿入され、このレイアウト設定の影響を受けません。</div>
     </div>
 
     <div class="field-group" id="gridFields" style="display:none;">
@@ -441,8 +484,9 @@
       <div class="seg" id="orientSeg">
         <button class="active" data-orient="portrait">縦</button>
         <button data-orient="landscape">横</button>
-        <button data-orient="auto">画像に合わせる</button>
+        <button data-orient="auto">画像に合わせる（縦横混在）</button>
       </div>
+      <div class="hint">「画像に合わせる」を選ぶと、向きが同じ画像が連続する区間ごとにまとめ、余白が最も少なくなる行×列とページ向きを自動選定します（例：横向き4枚→横ページに2×2、縦向き2枚→横ページに1×2で並べる、など）。グリッドの行数/列数は「1ページの最大枚数」として使われます。</div>
     </div>
 
     <div class="field-group">
@@ -470,10 +514,10 @@
     <div class="field-group">
       <div class="field-label">画像品質（JPEG, %）</div>
       <input type="number" id="qualityInput" min="1" max="100" value="90">
-      <div class="hint">100%はPNG相当（無劣化・容量大）。下げるほどファイルサイズが小さくなります。</div>
+      <div class="hint">100%は無劣化（容量大）。下げるほどファイルサイズが小さくなります。挿入したPDFのページには影響しません（元データのまま埋め込まれます）。</div>
     </div>
 
-    <div class="stat-line"><span>画像枚数</span><b id="statImgCount">0</b></div>
+    <div class="stat-line"><span>読み込みアイテム数</span><b id="statImgCount">0</b></div>
     <div class="stat-line"><span>出力ページ数(予測)</span><b id="statPageCount">0</b></div>
 
     <button class="btn primary" id="generateBtn" disabled>PDFを生成してダウンロード</button>
@@ -483,17 +527,17 @@
   <div class="main">
 
     <div class="dropzone" id="dropzone">
-      <div class="big">画像をドラッグ&ドロップ、またはクリックして選択</div>
-      <div class="small">JPEG / PNG / WebP 対応・複数選択可</div>
-      <input type="file" id="fileInput" accept="image/*" multiple>
+      <div class="big">画像 または PDFをドラッグ&ドロップ、またはクリックして選択</div>
+      <div class="small">JPEG / PNG / WebP / PDF 対応・複数選択可</div>
+      <input type="file" id="fileInput" accept="image/*,application/pdf,.pdf" multiple>
     </div>
 
     <div class="thumbs-wrap">
       <div class="thumbs-header">
-        <span class="title">画像リスト（ドラッグで並び替え）</span>
+        <span class="title">アイテムリスト（ドラッグで並び替え）</span>
       </div>
       <div class="thumbs" id="thumbs">
-        <div class="empty-msg" id="emptyMsg">まだ画像がありません</div>
+        <div class="empty-msg" id="emptyMsg">まだ画像/PDFがありません</div>
       </div>
     </div>
 
@@ -502,7 +546,7 @@
         <span class="title">シートマップ（配置プレビュー）</span>
       </div>
       <div class="pages-strip" id="pagesStrip">
-        <div class="empty-msg">画像を追加するとページ構成が表示されます</div>
+        <div class="empty-msg">画像/PDFを追加するとページ構成が表示されます</div>
       </div>
     </div>
 
@@ -546,10 +590,12 @@
 </div>
 
 <script>
-const { jsPDF } = window.jspdf;
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 // ---- state ----
-let images = []; // { id, file, dataUrl, w, h, name }
+let items = []; // ordered list, mixed: {type:'image', ...} | {type:'pdf', ...}
 let dragIdx = null;
 let layoutMode = 'single';
 let orient = 'portrait';
@@ -560,6 +606,7 @@ const PAGE_SIZES = {
   letter: [215.9, 279.4],
   b5: [176, 250],
 };
+const MM_TO_PT = 72 / 25.4;
 
 // ---- element refs ----
 const fileInput = document.getElementById('fileInput');
@@ -635,27 +682,76 @@ dropzone.addEventListener('drop', e => {
 });
 
 function handleFiles(fileList) {
-  const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+  const files = Array.from(fileList);
   files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const img = new Image();
-      img.onload = () => {
-        images.push({
-          id: 'im_' + Math.random().toString(36).slice(2, 9),
-          dataUrl: ev.target.result,
-          w: img.naturalWidth,
-          h: img.naturalHeight,
-          name: file.name,
-          texts: []
-        });
-        renderAll();
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (isPdf) {
+      loadPdfFile(file);
+    } else if (file.type.startsWith('image/')) {
+      loadImageFile(file);
+    }
   });
   fileInput.value = '';
+}
+
+function loadImageFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      items.push({
+        type: 'image',
+        id: 'im_' + Math.random().toString(36).slice(2, 9),
+        dataUrl: ev.target.result,
+        w: img.naturalWidth,
+        h: img.naturalHeight,
+        name: file.name,
+        texts: []
+      });
+      renderAll();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function loadPdfFile(file) {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  const placeholder = {
+    type: 'pdf',
+    id: 'pdf_' + Math.random().toString(36).slice(2, 9),
+    name: file.name,
+    bytes: bytes,
+    pageCount: 0,
+    thumbDataUrl: null,
+    w: 210, h: 297
+  };
+  items.push(placeholder);
+  renderAll();
+
+  try {
+    if (!window.pdfjsLib) throw new Error('pdf.js not loaded');
+    const loadingTask = pdfjsLib.getDocument({ data: bytes.slice() }); // clone: keep original bytes intact
+    const pdf = await loadingTask.promise;
+    placeholder.pageCount = pdf.numPages;
+    const page = await pdf.getPage(1);
+    const baseViewport = page.getViewport({ scale: 1 });
+    placeholder.w = baseViewport.width * (25.4 / 72);
+    placeholder.h = baseViewport.height * (25.4 / 72);
+    const scale = 260 / baseViewport.width;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    placeholder.thumbDataUrl = canvas.toDataURL('image/png');
+  } catch (err) {
+    console.error('PDFプレビュー生成エラー:', err);
+    placeholder.pageCount = placeholder.pageCount || 1;
+    placeholder.thumbError = true;
+  }
+  renderAll();
 }
 
 // ---- layout controls ----
@@ -681,28 +777,47 @@ orientSeg.addEventListener('click', e => {
 [gridRows, gridCols, pageSizeSel, marginInput].forEach(el => el.addEventListener('input', renderAll));
 
 clearBtn.addEventListener('click', () => {
-  images = [];
+  items = [];
   renderAll();
 });
 
 // ---- thumbnail rendering + drag reorder ----
 function renderThumbs() {
   thumbsEl.querySelectorAll('.thumb').forEach(n => n.remove());
-  emptyMsg.style.display = images.length ? 'none' : 'block';
+  emptyMsg.style.display = items.length ? 'none' : 'block';
 
-  images.forEach((im, idx) => {
+  items.forEach((it, idx) => {
     const div = document.createElement('div');
-    div.className = 'thumb';
     div.draggable = true;
     div.dataset.idx = idx;
-    div.innerHTML = `
-      <span class="idx">${idx + 1}</span>
-      <button class="rm" data-idx="${idx}" title="削除">×</button>
-      <img src="${im.dataUrl}" alt="">
-      ${im.texts && im.texts.length ? `<span class="txt-badge">T×${im.texts.length}</span>` : ''}
-      <button class="txt" data-idx="${idx}" title="テキストを追加">T</button>
-      <div class="fname">${im.name}</div>
-    `;
+
+    if (it.type === 'image') {
+      div.className = 'thumb';
+      div.innerHTML = `
+        <span class="idx">${idx + 1}</span>
+        <button class="rm" data-idx="${idx}" title="削除">×</button>
+        <img src="${it.dataUrl}" alt="">
+        ${it.texts && it.texts.length ? `<span class="txt-badge">T×${it.texts.length}</span>` : ''}
+        <button class="txt" data-idx="${idx}" title="テキストを追加">T</button>
+        <div class="fname">${it.name}</div>
+      `;
+      div.querySelector('.txt').addEventListener('click', e => {
+        e.stopPropagation();
+        openTextModal(Number(e.currentTarget.dataset.idx));
+      });
+    } else {
+      div.className = 'thumb pdf-thumb';
+      const thumb = it.thumbDataUrl || '';
+      div.innerHTML = `
+        <span class="idx">${idx + 1}</span>
+        <button class="rm" data-idx="${idx}" title="削除">×</button>
+        ${thumb ? `<img src="${thumb}" alt="">` : `<div style="width:100%;height:88px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:var(--mono);font-size:11px;">読込中…</div>`}
+        <span class="pdf-tag">PDF</span>
+        <span class="pdf-pages">${it.pageCount ? it.pageCount + 'p' : ''}</span>
+        <div class="fname">${it.name}</div>
+      `;
+    }
+
     div.addEventListener('dragstart', () => { dragIdx = idx; div.classList.add('dragging'); });
     div.addEventListener('dragend', () => { div.classList.remove('dragging'); dragIdx = null; });
     div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over-target'); });
@@ -712,186 +827,34 @@ function renderThumbs() {
       div.classList.remove('drag-over-target');
       const targetIdx = idx;
       if (dragIdx === null || dragIdx === targetIdx) return;
-      const [moved] = images.splice(dragIdx, 1);
-      images.splice(targetIdx, 0, moved);
+      const [moved] = items.splice(dragIdx, 1);
+      items.splice(targetIdx, 0, moved);
       renderAll();
     });
     div.querySelector('.rm').addEventListener('click', e => {
       e.stopPropagation();
-      images.splice(Number(e.currentTarget.dataset.idx), 1);
+      items.splice(Number(e.currentTarget.dataset.idx), 1);
       renderAll();
     });
-    div.querySelector('.txt').addEventListener('click', e => {
-      e.stopPropagation();
-      openTextModal(Number(e.currentTarget.dataset.idx));
-    });
+
     thumbsEl.appendChild(div);
   });
 }
 
-// ---- layout math (shared between preview + pdf) ----
-function getPageDims() {
-  let [w, h] = PAGE_SIZES[pageSizeSel.value];
-  let effectiveOrient = orient;
-  if (orient === 'landscape') { [w, h] = [h, w]; }
-  return { w, h, effectiveOrient };
-}
-
-function buildPagePlan() {
-  const margin = Math.max(0, Number(marginInput.value) || 0);
-  const plan = []; // array of { w, h, cells: [{x,y,cw,ch, image}] }
-
-  if (layoutMode === 'single') {
-    images.forEach(im => {
-      let [w, h] = PAGE_SIZES[pageSizeSel.value];
-      let isLandscape;
-      if (orient === 'auto') {
-        isLandscape = im.w > im.h;
-      } else if (orient === 'landscape') {
-        isLandscape = true;
-      } else {
-        isLandscape = false;
-      }
-      if (isLandscape) [w, h] = [Math.max(w,h), Math.min(w,h)];
-      else [w, h] = [Math.min(w,h), Math.max(w,h)];
-
-      const cw = w - margin * 2;
-      const ch = h - margin * 2;
-      plan.push({ w, h, cells: [{ x: margin, y: margin, cw, ch, image: im }] });
-    });
-  } else {
-    const rows = Math.max(1, Number(gridRows.value) || 1);
-    const cols = Math.max(1, Number(gridCols.value) || 1);
-    const perPage = rows * cols;
-    let [w, h] = PAGE_SIZES[pageSizeSel.value];
-    if (orient === 'landscape' || (orient === 'auto' && cols > rows)) [w, h] = [Math.max(w,h), Math.min(w,h)];
-    else [w, h] = [Math.min(w,h), Math.max(w,h)];
-
-    const gap = margin / 2;
-    const gridW = w - margin * 2;
-    const gridH = h - margin * 2;
-    const cellW = (gridW - gap * (cols - 1)) / cols;
-    const cellH = (gridH - gap * (rows - 1)) / rows;
-
-    for (let i = 0; i < images.length; i += perPage) {
-      const chunk = images.slice(i, i + perPage);
-      const cells = chunk.map((im, ci) => {
-        const r = Math.floor(ci / cols);
-        const c = ci % cols;
-        return {
-          x: margin + c * (cellW + gap),
-          y: margin + r * (cellH + gap),
-          cw: cellW, ch: cellH,
-          image: im
-        };
-      });
-      plan.push({ w, h, cells });
-    }
-  }
-  return plan;
-}
-
-function fitContain(imW, imH, boxW, boxH) {
-  const scale = Math.min(boxW / imW, boxH / imH);
-  const dw = imW * scale, dh = imH * scale;
-  return { dw, dh, dx: (boxW - dw) / 2, dy: (boxH - dh) / 2 };
-}
-
-// ---- sheet map preview ----
-function renderSheetMap() {
-  pagesStrip.innerHTML = '';
-  if (!images.length) {
-    pagesStrip.innerHTML = '<div class="empty-msg">画像を追加するとページ構成が表示されます</div>';
-    return;
-  }
-  const plan = buildPagePlan();
-  const previewScale = 0.6; // px per mm
-
-  plan.forEach((page, pIdx) => {
-    const card = document.createElement('div');
-    card.className = 'page-card';
-    const pw = page.w * previewScale;
-    const ph = page.h * previewScale;
-    card.style.width = pw + 'px';
-    card.style.height = ph + 'px';
-
-    page.cells.forEach((cell, cIdx) => {
-      const cdiv = document.createElement('div');
-      cdiv.className = 'cell';
-      cdiv.style.left = (cell.x * previewScale) + 'px';
-      cdiv.style.top = (cell.y * previewScale) + 'px';
-      cdiv.style.width = (cell.cw * previewScale) + 'px';
-      cdiv.style.height = (cell.ch * previewScale) + 'px';
-      cdiv.innerHTML = `<span class="cellnum">${cIdx + 1}</span><img src="${cell.image.dataUrl}">`;
-
-      if (cell.image.texts && cell.image.texts.length) {
-        const fit = fitContain(cell.image.w, cell.image.h, cell.cw, cell.ch);
-        const cellPxW = cell.cw * previewScale;
-        const cellPxH = cell.ch * previewScale;
-        const dispW = fit.dw * previewScale;
-        const dispH = fit.dh * previewScale;
-        const offX = fit.dx * previewScale;
-        const offY = fit.dy * previewScale;
-        cell.image.texts.forEach(tb => {
-          const tdiv = document.createElement('div');
-          tdiv.className = 'cell-text';
-          tdiv.style.left = (offX + tb.xRatio * dispW) + 'px';
-          tdiv.style.top = (offY + tb.yRatio * dispH) + 'px';
-          tdiv.style.fontSize = Math.max(4, (tb.fontSize / 100) * dispH) + 'px';
-          tdiv.style.color = tb.color;
-          tdiv.style.fontFamily = FONT_STACKS[tb.font] || FONT_STACKS.gothic;
-          tdiv.textContent = tb.text;
-          cdiv.appendChild(tdiv);
-        });
-      }
-
-      card.appendChild(cdiv);
-    });
-
-    const pnum = document.createElement('div');
-    pnum.className = 'page-num';
-    pnum.textContent = `p.${pIdx + 1}`;
-    card.appendChild(pnum);
-
-    pagesStrip.appendChild(card);
-  });
-
-  if (layoutMode === 'grid') {
-    const rows = Math.max(1, Number(gridRows.value) || 1);
-    const cols = Math.max(1, Number(gridCols.value) || 1);
-    cellCountHint.textContent = rows * cols;
-  }
-}
-
-// ---- stats / status ----
-function renderStats() {
-  statImgCount.textContent = images.length;
-  statusText.textContent = `${images.length} 枚読み込み済み`;
-  const plan = buildPagePlan();
-  statPageCount.textContent = plan.length;
-  generateBtn.disabled = images.length === 0;
-}
-
-function renderAll() {
-  renderThumbs();
-  renderSheetMap();
-  renderStats();
-}
-
-// ---- text overlay editor modal ----
+// ---- text overlay editor modal (images only) ----
 function openTextModal(idx) {
+  const it = items[idx];
+  if (!it || it.type !== 'image') return;
   editingImgIdx = idx;
   selectedTextId = null;
-  const im = images[idx];
-  modalTitle.textContent = `テキストを追加 — ${im.name}`;
-  stageImg.src = im.dataUrl;
+  modalTitle.textContent = `テキストを追加 — ${it.name}`;
+  stageImg.src = it.dataUrl;
   modalOverlay.classList.add('open');
 
-  // size the stage to fit viewport while respecting image aspect ratio
   const applySize = () => {
     const maxW = Math.min(window.innerWidth * 0.86, 760);
     const maxH = window.innerHeight * 0.55;
-    let w = im.w, h = im.h;
+    let w = it.w, h = it.h;
     const scale = Math.min(maxW / w, maxH / h, 1.6);
     w *= scale; h *= scale;
     stageWrap.style.width = w + 'px';
@@ -905,15 +868,15 @@ function closeTextModal() {
   modalOverlay.classList.remove('open');
   editingImgIdx = null;
   selectedTextId = null;
-  renderAll(); // refresh thumbnails (badge) + sheet map with new texts
+  renderAll();
 }
 modalCloseBtn.addEventListener('click', closeTextModal);
 modalDoneBtn.addEventListener('click', closeTextModal);
 modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeTextModal(); });
 
 stageWrap.addEventListener('click', e => {
-  if (e.target !== stageWrap && e.target !== stageImg) return; // ignore clicks on existing textboxes
-  const im = images[editingImgIdx];
+  if (e.target !== stageWrap && e.target !== stageImg) return;
+  const it = items[editingImgIdx];
   const rect = stageWrap.getBoundingClientRect();
   const xRatio = (e.clientX - rect.left) / rect.width;
   const yRatio = (e.clientY - rect.top) / rect.height;
@@ -926,7 +889,7 @@ stageWrap.addEventListener('click', e => {
     color: lastTextStyle.color,
     font: lastTextStyle.font
   };
-  im.texts.push(tb);
+  it.texts.push(tb);
   selectedTextId = tb.id;
   renderStageTextboxes();
 });
@@ -940,11 +903,11 @@ function selectTextbox(id, div) {
 
 function renderStageTextboxes() {
   stageWrap.querySelectorAll('.textbox').forEach(n => n.remove());
-  const im = images[editingImgIdx];
-  if (!im) return;
+  const it = items[editingImgIdx];
+  if (!it) return;
   const stageH = stageWrap.getBoundingClientRect().height || stageWrap.offsetHeight;
 
-  im.texts.forEach(tb => {
+  it.texts.forEach(tb => {
     const div = document.createElement('div');
     div.className = 'textbox' + (tb.id === selectedTextId ? ' selected' : '');
     div.style.left = (tb.xRatio * 100) + '%';
@@ -960,7 +923,7 @@ function renderStageTextboxes() {
     delBtn.textContent = '×';
     delBtn.addEventListener('click', e => {
       e.stopPropagation();
-      im.texts = im.texts.filter(t => t.id !== tb.id);
+      it.texts = it.texts.filter(t => t.id !== tb.id);
       if (selectedTextId === tb.id) selectedTextId = null;
       renderStageTextboxes();
     });
@@ -976,10 +939,9 @@ function renderStageTextboxes() {
       startEditTextbox(div, tb);
     });
 
-    // drag to reposition
     div.addEventListener('pointerdown', e => {
       if (e.target === delBtn) return;
-      if (div.querySelector('textarea')) return; // currently editing text content
+      if (div.querySelector('textarea')) return;
       selectTextbox(tb.id, div);
       const rect = stageWrap.getBoundingClientRect();
       const onMove = ev => {
@@ -994,7 +956,6 @@ function renderStageTextboxes() {
       const onUp = () => {
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
-        syncToolbar();
       };
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
@@ -1022,8 +983,8 @@ function startEditTextbox(div, tb) {
   const finish = () => {
     const val = ta.value.trim();
     if (!val) {
-      const im = images[editingImgIdx];
-      im.texts = im.texts.filter(t => t.id !== tb.id);
+      const it = items[editingImgIdx];
+      it.texts = it.texts.filter(t => t.id !== tb.id);
     } else {
       tb.text = ta.value;
     }
@@ -1037,8 +998,8 @@ function startEditTextbox(div, tb) {
 }
 
 function syncToolbar() {
-  const im = images[editingImgIdx];
-  const tb = im ? im.texts.find(t => t.id === selectedTextId) : null;
+  const it = items[editingImgIdx];
+  const tb = it ? it.texts.find(t => t.id === selectedTextId) : null;
   if (tb) {
     tbFontSize.disabled = false;
     tbColor.disabled = false;
@@ -1056,40 +1017,330 @@ function syncToolbar() {
 }
 
 tbFontSize.addEventListener('input', () => {
-  const im = images[editingImgIdx];
-  const tb = im && im.texts.find(t => t.id === selectedTextId);
+  const it = items[editingImgIdx];
+  const tb = it && it.texts.find(t => t.id === selectedTextId);
   if (!tb) return;
   tb.fontSize = Math.max(1, Number(tbFontSize.value) || 5);
   saveLastTextStyle(tb);
   renderStageTextboxes();
 });
 tbColor.addEventListener('input', () => {
-  const im = images[editingImgIdx];
-  const tb = im && im.texts.find(t => t.id === selectedTextId);
+  const it = items[editingImgIdx];
+  const tb = it && it.texts.find(t => t.id === selectedTextId);
   if (!tb) return;
   tb.color = tbColor.value;
   saveLastTextStyle(tb);
   renderStageTextboxes();
 });
 tbFont.addEventListener('change', () => {
-  const im = images[editingImgIdx];
-  const tb = im && im.texts.find(t => t.id === selectedTextId);
+  const it = items[editingImgIdx];
+  const tb = it && it.texts.find(t => t.id === selectedTextId);
   if (!tb) return;
   tb.font = tbFont.value;
   saveLastTextStyle(tb);
   renderStageTextboxes();
 });
 
-function hexToRgb(hex) {
-  const m = hex.replace('#', '');
-  const bigint = parseInt(m, 16);
-  return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+// ---- layout math ----
+function fitContain(imW, imH, boxW, boxH) {
+  const scale = Math.min(boxW / imW, boxH / imH);
+  const dw = imW * scale, dh = imH * scale;
+  return { dw, dh, dx: (boxW - dw) / 2, dy: (boxH - dh) / 2 };
 }
 
-// jsPDFの標準フォントは日本語グリフを持たないため、テキストはCanvasで
-// ラスタライズしてPNG画像としてPDFに埋め込む（フォント埋め込み不要・文字化けしない）
-const TEXT_PX_PER_MM = 10; // 約254dpi相当の描画解像度
-const TEXT_FONT_STACK = "'Noto Sans JP','Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic','Meiryo',sans-serif";
+function buildSingleImagePage(im, margin) {
+  let [w, h] = PAGE_SIZES[pageSizeSel.value];
+  let isLandscape;
+  if (orient === 'auto') isLandscape = im.w > im.h;
+  else if (orient === 'landscape') isLandscape = true;
+  else isLandscape = false;
+
+  if (isLandscape) [w, h] = [Math.max(w, h), Math.min(w, h)];
+  else [w, h] = [Math.min(w, h), Math.max(w, h)];
+
+  const cw = w - margin * 2;
+  const ch = h - margin * 2;
+  return { w, h, cells: [{ x: margin, y: margin, cw, ch, image: im }] };
+}
+
+function buildSinglePages(imgs, margin) {
+  return imgs.map(im => buildSingleImagePage(im, margin));
+}
+
+function buildGridPageForChunk(chunk, margin, rows, cols, isLandscape) {
+  let [w, h] = PAGE_SIZES[pageSizeSel.value];
+  if (isLandscape) [w, h] = [Math.max(w, h), Math.min(w, h)];
+  else [w, h] = [Math.min(w, h), Math.max(w, h)];
+
+  const gap = margin / 2;
+  const gridW = w - margin * 2;
+  const gridH = h - margin * 2;
+  const cellW = (gridW - gap * (cols - 1)) / cols;
+  const cellH = (gridH - gap * (rows - 1)) / rows;
+
+  const cells = chunk.map((im, ci) => {
+    const r = Math.floor(ci / cols);
+    const c = ci % cols;
+    return {
+      x: margin + c * (cellW + gap),
+      y: margin + r * (cellH + gap),
+      cw: cellW, ch: cellH,
+      image: im
+    };
+  });
+  return { w, h, cells };
+}
+
+function buildGridPages(imgs, margin) {
+  const pages = [];
+  const rows = Math.max(1, Number(gridRows.value) || 1);
+  const cols = Math.max(1, Number(gridCols.value) || 1);
+  const perPage = rows * cols;
+
+  for (let i = 0; i < imgs.length; i += perPage) {
+    const chunk = imgs.slice(i, i + perPage);
+    let isLandscape;
+    if (orient === 'landscape') {
+      isLandscape = true;
+    } else if (orient === 'portrait') {
+      isLandscape = false;
+    } else {
+      const avgAspect = chunk.reduce((s, im) => s + (im.w / im.h), 0) / chunk.length;
+      isLandscape = avgAspect > 1;
+    }
+    pages.push(buildGridPageForChunk(chunk, margin, rows, cols, isLandscape));
+  }
+  return pages;
+}
+
+// --- auto-pack: used for グリッド配置 + 画像に合わせる(縦横混在) ---
+// ページごとに「その回に集まった画像の向き」に応じて、行×列とページ自体の
+// 向きを、空白が最も少なくなる組み合わせから自動で選ぶ。
+function fillRatioForShape(chunk, rows, cols, isLandscape, margin) {
+  let [w, h] = PAGE_SIZES[pageSizeSel.value];
+  if (isLandscape) [w, h] = [Math.max(w, h), Math.min(w, h)];
+  else [w, h] = [Math.min(w, h), Math.max(w, h)];
+  const gap = margin / 2;
+  const gridW = w - margin * 2;
+  const gridH = h - margin * 2;
+  const cellW = (gridW - gap * (cols - 1)) / cols;
+  const cellH = (gridH - gap * (rows - 1)) / rows;
+  if (cellW <= 0 || cellH <= 0) return -1;
+
+  let totalFill = 0;
+  chunk.forEach(im => {
+    const fit = fitContain(im.w, im.h, cellW, cellH);
+    totalFill += fit.dw * fit.dh;
+  });
+  return totalFill / (cellW * cellH * chunk.length);
+}
+
+function chooseBestArrangement(chunk, margin, maxRows, maxCols) {
+  const N = chunk.length;
+
+  // find the minimal-waste (rows x cols) shapes within the configured max capacity
+  let minCells = Infinity;
+  for (let r = 1; r <= maxRows; r++) {
+    for (let c = 1; c <= maxCols; c++) {
+      if (r * c >= N && r * c < minCells) minCells = r * c;
+    }
+  }
+  const shapeCandidates = [];
+  for (let r = 1; r <= maxRows; r++) {
+    for (let c = 1; c <= maxCols; c++) {
+      if (r * c === minCells) shapeCandidates.push({ r, c });
+    }
+  }
+
+  const avgAspect = chunk.reduce((s, im) => s + (im.w / im.h), 0) / chunk.length;
+  const majorityLandscape = avgAspect > 1;
+
+  let best = null;
+  shapeCandidates.forEach(({ r, c }) => {
+    [true, false].forEach(isLandscape => {
+      const fill = fillRatioForShape(chunk, r, c, isLandscape, margin);
+      if (fill < 0) return;
+      const score = fill + (isLandscape === majorityLandscape ? 0.001 : 0);
+      if (!best || score > best.score) best = { r, c, isLandscape, score };
+    });
+  });
+
+  return buildGridPageForChunk(chunk, margin, best.r, best.c, best.isLandscape);
+}
+
+function buildAutoPackedGridPages(imgs, margin) {
+  const maxRows = Math.max(1, Number(gridRows.value) || 1);
+  const maxCols = Math.max(1, Number(gridCols.value) || 1);
+  const maxCells = maxRows * maxCols;
+  const pages = [];
+
+  // group consecutive images by orientation (never mix landscape/portrait on one page)
+  const runs = [];
+  let current = [];
+  let currentLandscape = null;
+  imgs.forEach(im => {
+    const isLandscape = im.w > im.h;
+    if (currentLandscape === null || isLandscape === currentLandscape) {
+      current.push(im);
+      currentLandscape = isLandscape;
+    } else {
+      runs.push(current);
+      current = [im];
+      currentLandscape = isLandscape;
+    }
+  });
+  if (current.length) runs.push(current);
+
+  runs.forEach(run => {
+    for (let i = 0; i < run.length; i += maxCells) {
+      const chunk = run.slice(i, i + maxCells);
+      if (chunk.length === 1) {
+        pages.push(buildSingleImagePage(chunk[0], margin));
+      } else {
+        pages.push(chooseBestArrangement(chunk, margin, maxRows, maxCols));
+      }
+    }
+  });
+  return pages;
+}
+
+// Walk the ordered items list, grouping consecutive images into laid-out pages,
+// and inserting PDF items as untouched original-page bundles.
+function buildPlan() {
+  const margin = Math.max(0, Number(marginInput.value) || 0);
+  const plan = [];
+  let runBuffer = [];
+
+  function flushRun() {
+    if (!runBuffer.length) return;
+    let pages;
+    if (layoutMode === 'single') pages = buildSinglePages(runBuffer, margin);
+    else if (orient === 'auto') pages = buildAutoPackedGridPages(runBuffer, margin);
+    else pages = buildGridPages(runBuffer, margin);
+    pages.forEach(p => plan.push({ kind: 'imagePage', w: p.w, h: p.h, cells: p.cells }));
+    runBuffer = [];
+  }
+
+  items.forEach(it => {
+    if (it.type === 'image') {
+      runBuffer.push(it);
+    } else if (it.type === 'pdf') {
+      flushRun();
+      plan.push({ kind: 'pdfBundle', item: it, pageCount: Math.max(1, it.pageCount || 1) });
+    }
+  });
+  flushRun();
+  return plan;
+}
+
+
+// ---- sheet map preview ----
+function renderSheetMap() {
+  pagesStrip.innerHTML = '';
+  if (!items.length) {
+    pagesStrip.innerHTML = '<div class="empty-msg">画像/PDFを追加するとページ構成が表示されます</div>';
+    return;
+  }
+  const plan = buildPlan();
+  const previewScale = 0.6;
+  let pageCounter = 0;
+
+  plan.forEach(entry => {
+    if (entry.kind === 'imagePage') {
+      pageCounter += 1;
+      const card = document.createElement('div');
+      card.className = 'page-card';
+      const pw = entry.w * previewScale;
+      const ph = entry.h * previewScale;
+      card.style.width = pw + 'px';
+      card.style.height = ph + 'px';
+
+      entry.cells.forEach((cell, cIdx) => {
+        const cdiv = document.createElement('div');
+        cdiv.className = 'cell';
+        cdiv.style.left = (cell.x * previewScale) + 'px';
+        cdiv.style.top = (cell.y * previewScale) + 'px';
+        cdiv.style.width = (cell.cw * previewScale) + 'px';
+        cdiv.style.height = (cell.ch * previewScale) + 'px';
+        cdiv.innerHTML = `<span class="cellnum">${cIdx + 1}</span><img src="${cell.image.dataUrl}">`;
+
+        if (cell.image.texts && cell.image.texts.length) {
+          const fit = fitContain(cell.image.w, cell.image.h, cell.cw, cell.ch);
+          const dispW = fit.dw * previewScale;
+          const dispH = fit.dh * previewScale;
+          const offX = fit.dx * previewScale;
+          const offY = fit.dy * previewScale;
+          cell.image.texts.forEach(tb => {
+            const tdiv = document.createElement('div');
+            tdiv.className = 'cell-text';
+            tdiv.style.left = (offX + tb.xRatio * dispW) + 'px';
+            tdiv.style.top = (offY + tb.yRatio * dispH) + 'px';
+            tdiv.style.fontSize = Math.max(4, (tb.fontSize / 100) * dispH) + 'px';
+            tdiv.style.color = tb.color;
+            tdiv.style.fontFamily = FONT_STACKS[tb.font] || FONT_STACKS.gothic;
+            tdiv.textContent = tb.text;
+            cdiv.appendChild(tdiv);
+          });
+        }
+        card.appendChild(cdiv);
+      });
+
+      const pnum = document.createElement('div');
+      pnum.className = 'page-num';
+      pnum.textContent = `p.${pageCounter}`;
+      card.appendChild(pnum);
+      pagesStrip.appendChild(card);
+
+    } else if (entry.kind === 'pdfBundle') {
+      const startPage = pageCounter + 1;
+      pageCounter += entry.pageCount;
+      const card = document.createElement('div');
+      card.className = 'page-card pdf-bundle-card';
+      const aspect = entry.item.h / entry.item.w;
+      const pw = 148;
+      const ph = Math.round(pw * aspect);
+      card.style.width = pw + 'px';
+      card.style.height = (ph + 34) + 'px';
+      const thumb = entry.item.thumbDataUrl
+        ? `<img src="${entry.item.thumbDataUrl}" style="height:${ph}px;">`
+        : `<div style="width:100%;height:${ph}px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:var(--mono);font-size:10px;">読込中…</div>`;
+      card.innerHTML = `
+        ${thumb}
+        <div class="pb-label">元PDF ${entry.pageCount}ページ<br>そのまま挿入</div>
+      `;
+      const pnum = document.createElement('div');
+      pnum.className = 'page-num';
+      pnum.textContent = entry.pageCount > 1 ? `p.${startPage}–${pageCounter}` : `p.${startPage}`;
+      card.appendChild(pnum);
+      pagesStrip.appendChild(card);
+    }
+  });
+}
+
+// ---- stats / status ----
+function renderStats() {
+  statImgCount.textContent = items.length;
+  statusText.textContent = `${items.length} 件読み込み済み`;
+  const plan = buildPlan();
+  const totalPages = plan.reduce((sum, e) => sum + (e.kind === 'pdfBundle' ? e.pageCount : 1), 0);
+  statPageCount.textContent = totalPages;
+  generateBtn.disabled = items.length === 0;
+  if (layoutMode === 'grid') {
+    const rows = Math.max(1, Number(gridRows.value) || 1);
+    const cols = Math.max(1, Number(gridCols.value) || 1);
+    cellCountHint.textContent = rows * cols;
+  }
+}
+
+function renderAll() {
+  renderThumbs();
+  renderSheetMap();
+  renderStats();
+}
+
+// ---- text-as-image rendering (avoids jsPDF/pdf-lib standard-font CJK corruption) ----
+const TEXT_PX_PER_MM = 10;
+const TEXT_FONT_STACK = FONT_STACKS.gothic;
 
 function renderTextToDataUrl(text, colorHex, fontSizeMm, fontStack) {
   const stack = fontStack || TEXT_FONT_STACK;
@@ -1126,87 +1377,127 @@ function renderTextToDataUrl(text, colorHex, fontSizeMm, fontStack) {
   };
 }
 
-// 出力設定: 画質(JPEG)を落として容量を圧縮する場合に使用
-function toJpegDataUrl(dataUrl, naturalW, naturalH, quality) {
+function dataUrlToUint8(dataUrl) {
+  const base64 = dataUrl.split(',')[1];
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+// 出力設定: 画質(JPEG)を落として容量を圧縮する場合に使用。PDFの埋め込み互換のため常にPNG/JPEGへ正規化する。
+function toEmbeddableImage(image, quality) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = naturalW;
-      canvas.height = naturalH;
+      canvas.width = image.w;
+      canvas.height = image.h;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, naturalW, naturalH);
-      ctx.drawImage(img, 0, 0, naturalW, naturalH);
-      resolve(canvas.toDataURL('image/jpeg', Math.min(1, Math.max(0.05, quality / 100))));
+      if (quality < 100) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, image.w, image.h);
+      }
+      ctx.drawImage(img, 0, 0, image.w, image.h);
+      if (quality >= 100) {
+        resolve({ bytes: dataUrlToUint8(canvas.toDataURL('image/png')), type: 'png' });
+      } else {
+        const q = Math.min(1, Math.max(0.05, quality / 100));
+        resolve({ bytes: dataUrlToUint8(canvas.toDataURL('image/jpeg', q)), type: 'jpg' });
+      }
     };
-    img.src = dataUrl;
+    img.src = image.dataUrl;
   });
 }
 
-async function buildOutputImageMap(quality) {
-  const map = {};
-  if (quality >= 100) {
-    images.forEach(im => { map[im.id] = im.dataUrl; });
-    return map;
-  }
-  for (const im of images) {
-    map[im.id] = await toJpegDataUrl(im.dataUrl, im.w, im.h, quality);
-  }
-  return map;
+function downloadBlob(bytes, filename) {
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-// ---- PDF generation ----
+// ---- PDF generation (pdf-lib: supports custom page sizes, image embedding,
+// and lossless copying of pages from source PDFs) ----
 generateBtn.addEventListener('click', async () => {
-  if (!images.length) return;
+  if (!items.length) return;
+  if (!window.PDFLib) {
+    alert('PDF生成ライブラリ(pdf-lib)の読み込みに失敗しました。ネットワーク接続を確認して再読み込みしてください。');
+    return;
+  }
   generateBtn.disabled = true;
   const prevLabel = generateBtn.textContent;
   generateBtn.textContent = '生成中…';
-  await new Promise(r => setTimeout(r, 30)); // let the label repaint before heavy work
+  await new Promise(r => setTimeout(r, 30));
   if (document.fonts && document.fonts.ready) {
     try { await document.fonts.ready; } catch (e) { /* ignore */ }
   }
 
   try {
+    const { PDFDocument } = PDFLib;
     const quality = Math.min(100, Math.max(1, Number(qualityInput.value) || 90));
-    const imgMap = await buildOutputImageMap(quality);
-    const plan = buildPagePlan();
-    let doc = null;
+    const outDoc = await PDFDocument.create();
 
-    plan.forEach((page, idx) => {
-      const orientation = page.w > page.h ? 'landscape' : 'portrait';
-      if (idx === 0) {
-        doc = new jsPDF({ orientation, unit: 'mm', format: [page.w, page.h] });
-      } else {
-        doc.addPage([page.w, page.h], orientation);
+    // Pre-embed all images once (each is used in exactly one cell)
+    const embeddedImageMap = {};
+    for (const it of items) {
+      if (it.type === 'image') {
+        const conv = await toEmbeddableImage(it, quality);
+        embeddedImageMap[it.id] = conv.type === 'jpg'
+          ? await outDoc.embedJpg(conv.bytes)
+          : await outDoc.embedPng(conv.bytes);
       }
-      page.cells.forEach(cell => {
-        const fit = fitContain(cell.image.w, cell.image.h, cell.cw, cell.ch);
-        doc.addImage(
-          imgMap[cell.image.id],
-          undefined,
-          cell.x + fit.dx,
-          cell.y + fit.dy,
-          fit.dw,
-          fit.dh
-        );
+    }
 
-        if (cell.image.texts && cell.image.texts.length) {
-          cell.image.texts.forEach(tb => {
-            const fontSizeMm = (tb.fontSize / 100) * fit.dh;
-            const rendered = renderTextToDataUrl(tb.text, tb.color, fontSizeMm, FONT_STACKS[tb.font] || FONT_STACKS.gothic);
-            const x0 = cell.x + fit.dx + tb.xRatio * fit.dw;
-            const y0 = cell.y + fit.dy + tb.yRatio * fit.dh;
-            doc.addImage(rendered.dataUrl, 'PNG', x0, y0, rendered.widthMm, rendered.heightMm);
-          });
+    const plan = buildPlan();
+
+    for (const entry of plan) {
+      if (entry.kind === 'imagePage') {
+        const pageWpt = entry.w * MM_TO_PT;
+        const pageHpt = entry.h * MM_TO_PT;
+        const pdfPage = outDoc.addPage([pageWpt, pageHpt]);
+
+        for (const cell of entry.cells) {
+          const fit = fitContain(cell.image.w, cell.image.h, cell.cw, cell.ch);
+          const embedded = embeddedImageMap[cell.image.id];
+          const wPt = fit.dw * MM_TO_PT;
+          const hPt = fit.dh * MM_TO_PT;
+          const xPt = (cell.x + fit.dx) * MM_TO_PT;
+          const yTopPt = (cell.y + fit.dy) * MM_TO_PT;
+          const yPt = pageHpt - yTopPt - hPt;
+          pdfPage.drawImage(embedded, { x: xPt, y: yPt, width: wPt, height: hPt });
+
+          if (cell.image.texts && cell.image.texts.length) {
+            for (const tb of cell.image.texts) {
+              const fontSizeMm = (tb.fontSize / 100) * fit.dh;
+              const rendered = renderTextToDataUrl(tb.text, tb.color, fontSizeMm, FONT_STACKS[tb.font] || FONT_STACKS.gothic);
+              const embeddedTxt = await outDoc.embedPng(dataUrlToUint8(rendered.dataUrl));
+              const twPt = rendered.widthMm * MM_TO_PT;
+              const thPt = rendered.heightMm * MM_TO_PT;
+              const txPt = (cell.x + fit.dx + tb.xRatio * fit.dw) * MM_TO_PT;
+              const tyTopPt = (cell.y + fit.dy + tb.yRatio * fit.dh) * MM_TO_PT;
+              const tyPt = pageHpt - tyTopPt - thPt;
+              pdfPage.drawImage(embeddedTxt, { x: txPt, y: tyPt, width: twPt, height: thPt });
+            }
+          }
         }
-      });
-    });
+      } else if (entry.kind === 'pdfBundle') {
+        const srcDoc = await PDFDocument.load(entry.item.bytes.slice());
+        const copied = await outDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+        copied.forEach(p => outDoc.addPage(p));
+      }
+    }
 
+    const pdfBytes = await outDoc.save();
     let fname = (fileNameInput.value || 'combined').trim();
     if (!fname) fname = 'combined';
     if (!/\.pdf$/i.test(fname)) fname += '.pdf';
-    doc.save(fname);
+    downloadBlob(pdfBytes, fname);
   } catch (err) {
     alert('PDF生成中にエラーが発生しました: ' + err.message);
     console.error(err);
